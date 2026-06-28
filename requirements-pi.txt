@@ -1,0 +1,11 @@
+# Raspberry Pi Zero 2 W dependencies (install on the Pi, not in Docker).
+# System packages first:
+#   sudo apt install -y python3-pip libportaudio2 libopenjp2-7 libtiff6 i2c-tools libraqm0
+requests>=2.31.0
+numpy>=1.24.0
+sounddevice>=0.4.6
+soundfile>=0.12.1
+gpiozero>=2.0
+RPi.GPIO>=0.7.1
+luma.oled>=3.13.0
+Pillow>=10.0.0
