@@ -58,11 +58,11 @@ async def run_websocket(identity: DeviceIdentity, stop_event: asyncio.Event) -> 
                 # On reconnect, check for pending assignment but DON'T auto-download
                 # Wait for invigilator to click Continue or Reset
                 pending = await _fetch_pending_assignment(identity.device_uuid)
-                if pending and _exam_service and not _exam_service.assignment:
-                    logger.info("Pending assignment found, waiting for invigilator action")
-                    _exam_service.hw.display("पूर्वीचे सत्र", "इन्व्हिजिलेटरची वाट पहा")
-                    # Store package but don't process yet
-                    _exam_service._pending_package = pending
+                if pending and isinstance(pending, dict) and _exam_service and not _exam_service.assignment:
+                    if _exam_service.hw:
+                        logger.info("Pending assignment found, waiting for invigilator action")
+                        _exam_service.hw.display("पूर्वीचे सत्र", "इन्व्हिजिलेटरची वाट पहा")
+                        _exam_service._pending_package = pending
                 
                 await asyncio.gather(
                     _receive_loop(ws, identity, stop_event),

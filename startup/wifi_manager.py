@@ -54,14 +54,30 @@ def try_connect(timeout: int = 15) -> bool:
     Ask NetworkManager to bring up any saved WiFi connection.
     Polls for `timeout` seconds; returns True if connected.
     """
+    # Get saved WiFi connection names
     try:
-        subprocess.run(
-            ["nmcli", "--wait", str(timeout), "device", "wifi", "connect"],
-            capture_output=True, text=True, timeout=timeout + 5,
+        result = subprocess.run(
+            ["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"],
+            capture_output=True, text=True, timeout=5,
         )
+        wifi_connections = [
+            line.split(":")[0] for line in result.stdout.strip().split("\n")
+            if ":802-11-wireless" in line
+        ]
     except Exception:
-        pass  # nmcli may exit non-zero even on partial success; we poll below
+        wifi_connections = []
 
+    # Try to bring up each saved WiFi connection
+    for conn_name in wifi_connections:
+        try:
+            subprocess.run(
+                ["nmcli", "connection", "up", conn_name],
+                capture_output=True, text=True, timeout=timeout,
+            )
+        except Exception:
+            pass
+
+    # Poll for connection
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if is_currently_connected():

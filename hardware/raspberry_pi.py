@@ -273,14 +273,18 @@ class RaspberryPiHardware(HardwareInterface):
         self._frames = []
         self._recording = True
         self._cue("record_start", fallback_freq=880.0)  # rising "go" beep
-        self._stream = sd.InputStream(
-            samplerate=_SAMPLE_RATE,
-            channels=_CHANNELS,
-            dtype="int16",
-            device=self._in_dev,
-            callback=self._audio_callback,
-        )
-        self._stream.start()
+        try:
+            self._stream = sd.InputStream(
+                samplerate=_SAMPLE_RATE,
+                channels=_CHANNELS,
+                dtype="int16",
+                device=self._in_dev,
+                callback=self._audio_callback,
+            )
+            self._stream.start()
+        except Exception as e:
+            print(f"[REC] Mic init failed: {e}")
+            self._stream = None  # Allows stop_recording to handle gracefully
 
     def _audio_callback(self, indata, frames, time_info, status):
         if status:
