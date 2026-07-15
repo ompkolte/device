@@ -30,6 +30,7 @@ Simulator mode: skipped entirely (assumes network available).
 """
 
 import os
+import time
 
 from config.logging_config import get_logger
 from config.settings import settings
@@ -37,6 +38,25 @@ from config.settings import settings
 logger = get_logger("pi.boot")
 
 _WIFI_CONNECT_TIMEOUT = 15  # seconds
+
+
+def _get_display():
+    """Get display function based on mode."""
+    mode = os.environ.get("MODE", "simulator").lower()
+    if mode == "simulator":
+        def _sim_display(line1, line2="", line3="", line4=""):
+            print(f"[DISPLAY] {line1}")
+            for ln in (line2, line3, line4):
+                if ln:
+                    print(f"          {ln}")
+        return _sim_display
+    else:
+        try:
+            from hardware.raspberry_pi import RaspberryPiHardware
+            hw = RaspberryPiHardware()
+            return hw.display
+        except Exception:
+            return lambda *args, **kwargs: None  # No-op if display fails
 
 
 def run() -> None:
@@ -50,29 +70,36 @@ def run() -> None:
         logger.info("Simulator mode — WiFi setup skipped.")
         return
 
+    display = _get_display()
+
     from startup.wifi_manager import (
         is_currently_connected,
         has_saved_wifi_profiles,
         try_connect,
     )
 
+    display("Checking WiFi", "Please wait...")
+
     # Fast path: already connected
     if is_currently_connected():
         logger.info("WiFi already connected.")
+        display("WiFi Connected", "Starting...")
         return
 
     # Saved profiles exist → attempt connection
     if has_saved_wifi_profiles():
+        display("Connecting...", "Please wait...")
         logger.info("Saved WiFi profiles found — attempting connection (%ds timeout)…", _WIFI_CONNECT_TIMEOUT)
         if try_connect(timeout=_WIFI_CONNECT_TIMEOUT):
+            display("WiFi Connected", "Starting...")
             return
         logger.warning("All saved WiFi profiles failed. Falling back to hotspot setup.")
 
     # No connection — run hotspot + captive portal loop until configured
-    _hotspot_setup_loop()
+    _hotspot_setup_loop(display)
 
 
-def _hotspot_setup_loop() -> None:
+def _hotspot_setup_loop(display) -> None:
     """
     Start hotspot → serve captive portal → connect to submitted WiFi.
     Loops until a successful connection is made.
@@ -92,12 +119,14 @@ def _hotspot_setup_loop() -> None:
 
     while True:
         logger.info("Starting hotspot | ssid=%s", ssid)
+        display("Hotspot Active", ssid)
         if not start_hotspot(ssid=ssid, password=password):
             logger.error("Could not start hotspot. Retrying in 10s…")
-            import time
+            display("Hotspot Failed", "Retry in 10s")
             time.sleep(10)
             continue
 
+        display("Open Browser", f"{portal_host}:{portal_port}")
         logger.info(
             "Connect to '%s' and open http://%s:%d/ to configure WiFi.",
             ssid, portal_host, portal_port,
@@ -113,11 +142,16 @@ def _hotspot_setup_loop() -> None:
             logger.warning("No credentials received. Restarting hotspot.")
             continue
 
+        # Truncate SSID for display (max ~18 chars)
+        ssid_short = credentials["ssid"][:16] + ".." if len(credentials["ssid"]) > 18 else credentials["ssid"]
+        display("Connecting...", ssid_short)
         logger.info("Connecting to WiFi | ssid=%s", credentials["ssid"])
         if connect_to_wifi(credentials["ssid"], credentials["password"]):
+            display("WiFi Connected", "Starting...")
             logger.info("WiFi configured and connected.")
             return
 
+        display("Connect Failed", "Retry...")
         logger.error(
             "Failed to connect to '%s'. Restarting hotspot for retry.",
             credentials["ssid"],

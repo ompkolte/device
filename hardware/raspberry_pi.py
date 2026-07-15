@@ -47,6 +47,7 @@ import os
 import time
 import wave
 import queue
+import threading
 
 import numpy as np
 import sounddevice as sd
@@ -55,9 +56,17 @@ from gpiozero import Button
 from luma.core.interface.serial import i2c
 from luma.oled.device import ssd1306
 from luma.core.render import canvas
-from PIL import ImageFont
+from PIL import ImageFont, Image, ImageDraw
 
 from .base import HardwareInterface
+
+_DISPLAY_WIDTH = 128
+_DISPLAY_HEIGHT = 64
+_FONT_SIZE = 10
+_LINE_HEIGHT = 15  # 4 lines: y=2, 17, 32, 47 fit in 64px
+_LINE_Y = [2, 17, 32, 47]
+_SCROLL_DELAY = 0.05  # seconds per pixel shift
+_SCROLL_PAUSE = 0.8   # pause at end before returning
 
 _SAMPLE_RATE = 16000   # mono 16-bit — matches what the backend STT expects
 _CHANNELS = 1
@@ -141,7 +150,7 @@ class RaspberryPiHardware(HardwareInterface):
         for path in candidates:
             if path and os.path.exists(path):
                 try:
-                    return ImageFont.truetype(path, 13)
+                    return ImageFont.truetype(path, _FONT_SIZE)
                 except Exception:
                     pass
         # Fallback: PIL's built-in bitmap font (Latin only — Devanagari shows as boxes).
@@ -149,11 +158,76 @@ class RaspberryPiHardware(HardwareInterface):
               "Set OLED_FONT or drop NotoSansDevanagari-Regular.ttf in device/fonts/.")
         return ImageFont.load_default()
 
-    def display(self, line1: str, line2: str = "") -> None:
+    def _text_width(self, text: str) -> int:
+        """Get pixel width of text string."""
+        bbox = self._font.getbbox(text)
+        return bbox[2] - bbox[0] if bbox else 0
+
+    def _draw_static(self, lines: list[str]) -> None:
+        """Draw up to 4 lines without scrolling."""
         with canvas(self._oled) as draw:
-            draw.text((2, 4), line1, font=self._font, fill="white")
-            if line2:
-                draw.text((2, 34), line2, font=self._font, fill="white")
+            for i, txt in enumerate(lines[:4]):
+                if txt:
+                    draw.text((2, _LINE_Y[i]), txt, font=self._font, fill="white")
+
+    def _scroll_line(self, line_idx: int, text: str, other_lines: list[str], stop_flag: threading.Event) -> None:
+        """Scroll a single line: left to end, pause, return to start."""
+        text_w = self._text_width(text)
+        max_offset = text_w - _DISPLAY_WIDTH + 4  # 4px margin
+        if max_offset <= 0:
+            return  # No scroll needed
+
+        # Scroll left
+        for offset in range(0, max_offset + 1, 2):
+            if stop_flag.is_set():
+                return
+            img = Image.new("1", (128, 64), 0)
+            draw = ImageDraw.Draw(img)
+            for i, txt in enumerate(other_lines[:4]):
+                if txt and i != line_idx:
+                    draw.text((2, _LINE_Y[i]), txt, font=self._font, fill="white")
+            draw.text((2 - offset, _LINE_Y[line_idx]), text, font=self._font, fill="white")
+            self._oled.display(img)
+            time.sleep(_SCROLL_DELAY)
+
+        # Pause at end
+        if not stop_flag.is_set():
+            time.sleep(_SCROLL_PAUSE)
+
+        # Return to start
+        self._draw_static(other_lines[:line_idx] + [text] + other_lines[line_idx + 1:])
+
+    def display(self, line1: str, line2: str = "", line3: str = "", line4: str = "") -> None:
+        """Display up to 4 lines. Long lines scroll in background thread."""
+        # Stop any existing scroll thread
+        if hasattr(self, "_scroll_stop"):
+            self._scroll_stop.set()
+            if hasattr(self, "_scroll_thread") and self._scroll_thread.is_alive():
+                self._scroll_thread.join(timeout=0.5)
+
+        lines = [line1, line2, line3, line4]
+        self._draw_static(lines)
+
+        # Find lines that need scrolling
+        scroll_needed = []
+        for i, txt in enumerate(lines):
+            if txt and self._text_width(txt) > _DISPLAY_WIDTH - 4:
+                scroll_needed.append((i, txt))
+
+        if not scroll_needed:
+            return
+
+        # Start background scroll thread
+        self._scroll_stop = threading.Event()
+
+        def scroll_all():
+            for line_idx, text in scroll_needed:
+                if self._scroll_stop.is_set():
+                    return
+                self._scroll_line(line_idx, text, lines, self._scroll_stop)
+
+        self._scroll_thread = threading.Thread(target=scroll_all, daemon=True)
+        self._scroll_thread.start()
 
     # ──────────────────────────────────────────────────────────────────────────
     # Audio playback + cues

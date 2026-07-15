@@ -12,11 +12,28 @@ Startup sequence
 """
 
 import asyncio
+import os
 import signal
 import sys
 
 from config.logging_config import setup_logging, get_logger
 from config.settings import settings
+
+# Show "SYSTEM ON" immediately on boot (before heavy imports)
+def _show_system_on():
+    mode = os.environ.get("MODE", "simulator").lower()
+    if mode == "simulator":
+        print("\n[DISPLAY] SYSTEM ON")
+    else:
+        try:
+            from hardware.raspberry_pi import RaspberryPiHardware
+            hw = RaspberryPiHardware()
+            hw.display("SYSTEM ON")
+        except Exception:
+            pass  # Continue boot even if display fails
+
+_show_system_on()
+
 from startup.boot_flow import run as wifi_boot
 from system.identity import load_or_create_identity, mark_registered
 from system.sysinfo import collect as collect_sysinfo
