@@ -45,7 +45,7 @@ def run() -> None:
     Blocks until the device has a working network connection.
     Skipped in simulator mode.
     """
-    hardware_mode = os.environ.get("HARDWARE", "simulator").lower()
+    hardware_mode = os.environ.get("MODE", "simulator").lower()
     if hardware_mode == "simulator":
         logger.info("Simulator mode — WiFi setup skipped.")
         return
