@@ -20,6 +20,9 @@ logger = get_logger("pi.websocket")
 
 # Global exam service instance (set from main.py)
 _exam_service = None
+# Guard against concurrent exam runs
+_exam_running = False
+_exam_lock = asyncio.Lock()
 
 
 def set_exam_service(svc):
@@ -139,6 +142,8 @@ async def _handle_assignment(package: dict) -> None:
 
 async def _handle_exam_status(exam_id: str, status: str) -> None:
     """Handle exam status change — start exam when active."""
+    global _exam_running
+    
     if _exam_service is None or _exam_service.assignment is None:
         return
     
@@ -147,6 +152,13 @@ async def _handle_exam_status(exam_id: str, status: str) -> None:
         return
     
     if status == "active":
+        # Guard against duplicate starts
+        async with _exam_lock:
+            if _exam_running:
+                logger.warning("Exam already running, ignoring duplicate active signal")
+                return
+            _exam_running = True
+        
         logger.info("Exam activated, starting exam flow")
         import concurrent.futures
         loop = asyncio.get_event_loop()
@@ -160,6 +172,9 @@ async def _handle_exam_status(exam_id: str, status: str) -> None:
                 logger.info("Exam completed: %d answers", len(answer_files))
         except Exception as e:
             logger.error("Exam error: %s", e)
+        finally:
+            async with _exam_lock:
+                _exam_running = False
 
 
 async def _handle_continue() -> None:

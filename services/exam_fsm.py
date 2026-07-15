@@ -164,25 +164,30 @@ class ExamFSM:
         """Handle button in RECORD_STATE (only R stops)."""
         if btn == BTN_RECORD:
             # R → Stop recording, save, play back, enter Answer Mode
-            saved_path = self.stop_recording()
-            
-            # Move to final location as .ogg
-            q_num = self.questions[self.question_index]["q_num"]
-            final_path = os.path.join(
-                self.answers_dir,
-                f"{self.exam_code}_{self.student_id}_q{q_num}.ogg"
-            )
-            os.replace(saved_path, final_path)
-            self.current_recording = final_path
-            
-            logger.info("Recording saved: %s", final_path)
-            self._announce("recording_stopped")
-            
-            # Play back recorded answer
-            self._play_current_recording()
-            
-            # Enter Answer Mode
-            self._enter_answer_mode()
+            try:
+                saved_path = self.stop_recording()
+                
+                # Move to final location as .ogg
+                q_num = self.questions[self.question_index]["q_num"]
+                final_path = os.path.join(
+                    self.answers_dir,
+                    f"{self.exam_code}_{self.student_id}_q{q_num}.ogg"
+                )
+                os.replace(saved_path, final_path)
+                self.current_recording = final_path
+                
+                logger.info("Recording saved: %s", final_path)
+                self._announce("recording_stopped")
+                
+                # Play back recorded answer
+                self._play_current_recording()
+                
+                # Enter Answer Mode
+                self._enter_answer_mode()
+            except Exception as e:
+                # I/O error during save — stay in record state, let user retry
+                logger.error("Failed to save recording: %s", e)
+                self.display(f"प्रश्न {self.questions[self.question_index]['q_num']}", "जतन अयशस्वी, पुन्हा R")
         # All other buttons ignored during recording
     
     def _handle_answer_mode(self, btn: str) -> None:
@@ -266,16 +271,19 @@ class ExamFSM:
     
     def force_finish(self) -> None:
         """Force-finish exam (time expired). Submit any in-progress recording."""
-        if self.state == State.RECORD_STATE:
-            # Stop recording if in progress
-            saved_path = self.stop_recording()
-            q_num = self.questions[self.question_index]["q_num"]
-            final_path = os.path.join(
-                self.answers_dir,
-                f"{self.exam_code}_{self.student_id}_q{q_num}.ogg"
-            )
-            os.replace(saved_path, final_path)
-            self.current_recording = final_path
+        try:
+            if self.state == State.RECORD_STATE:
+                # Stop recording if in progress
+                saved_path = self.stop_recording()
+                q_num = self.questions[self.question_index]["q_num"]
+                final_path = os.path.join(
+                    self.answers_dir,
+                    f"{self.exam_code}_{self.student_id}_q{q_num}.ogg"
+                )
+                os.replace(saved_path, final_path)
+                self.current_recording = final_path
+        except Exception as e:
+            logger.error("Error saving recording on force_finish: %s", e)
         
         # Submit if we have a recording
         if self.current_recording:

@@ -107,7 +107,7 @@ class ExamService:
                    package['exam_name'], package['student_name'])
 
     def download_assets(self) -> bool:
-        """Download all question audio files (.ogg)."""
+        """Download all question audio files (.ogg). Fails if any download fails."""
         if not self.assignment:
             return False
 
@@ -137,7 +137,10 @@ class ExamService:
                 logger.info("Downloaded: q%d", q["q_num"])
             except Exception as e:
                 logger.error("Failed to download q%d: %s", q["q_num"], e)
-                q["_local_audio"] = None
+                _update_assignment_status(self.assignment["assignment_id"], "download_failed")
+                _update_download_status(self.assignment["assignment_id"], "failed")
+                self.hw.display("डाउनलोड अयशस्वी", f"प्रश्न {q['q_num']}")
+                return False
 
         _update_assignment_status(self.assignment["assignment_id"], "ready")
         _update_download_status(self.assignment["assignment_id"], "ready")
@@ -188,6 +191,9 @@ class ExamService:
             self.hw.play_audio(ANNOUNCEMENTS["exam_start"])
         self.hw.display("परीक्षा सुरू!", "")
 
+        # Shared ref for FSM access from timer thread
+        fsm_ref = [None]
+        
         # Create FSM
         fsm = ExamFSM(
             questions=questions,
@@ -198,11 +204,10 @@ class ExamService:
             start_recording=self.hw.start_recording,
             stop_recording=self.hw.stop_recording,
             display=self.hw.display,
-            wait_for_button=self._timed_wait_for_button(exam_end_time, fsm_ref=[None]),
+            wait_for_button=self.hw.wait_for_button,
             on_answer_saved=lambda q, p: self.upload_service.queue_upload(q, p) if self.upload_service else None,
         )
-        # Store ref for timer callback
-        fsm_ref = [fsm]
+        fsm_ref[0] = fsm  # Now timer thread can access FSM
         
         # Timer thread for time warnings and expiry
         timer_stop = threading.Event()
@@ -221,7 +226,8 @@ class ExamService:
                 # Time expired
                 if remaining <= 0:
                     logger.info("Time expired, forcing finish")
-                    fsm.force_finish()
+                    if fsm_ref[0]:
+                        fsm_ref[0].force_finish()
                     break
                 
                 timer_stop.wait(5)  # Check every 5 seconds
@@ -229,11 +235,21 @@ class ExamService:
         timer = threading.Thread(target=timer_thread, daemon=True)
         timer.start()
         
-        # Run FSM
-        answer_files = fsm.run()
-        
-        timer_stop.set()
-        timer.join(timeout=1)
+        answer_files = {}
+        try:
+            # Run FSM
+            answer_files = fsm.run()
+        finally:
+            # Cleanup timer
+            timer_stop.set()
+            timer.join(timeout=1)
+            
+            # Cleanup upload service
+            if self.upload_service:
+                try:
+                    self.upload_service.stop()
+                except Exception as e:
+                    logger.warning("Upload service stop error: %s", e)
 
         # Show summary and wait for submit (or auto-submit if time expired)
         answered = len(answer_files)
@@ -260,7 +276,6 @@ class ExamService:
         submit_ok = True
         if self.upload_service:
             submit_ok = self.upload_service.finalize(answer_files)
-            self.upload_service.stop()
 
         if submit_ok:
             self.hw.display("सबमिट यशस्वी!", "धन्यवाद")
@@ -269,19 +284,6 @@ class ExamService:
         logger.info("Submission complete")
 
         return answer_files
-    
-    def _timed_wait_for_button(self, exam_end_time: float, fsm_ref: list):
-        """Create a wait_for_button wrapper that respects exam timer."""
-        def wait():
-            # ponytail: simple polling, event-based interrupts if latency matters
-            while True:
-                # Check time before waiting
-                if now_ist().timestamp() >= exam_end_time:
-                    if fsm_ref[0]:
-                        fsm_ref[0].force_finish()
-                    return BTN_NEXT  # Dummy return to exit FSM loop
-                return self.hw.wait_for_button()
-        return wait
 
     def get_local_manifest(self) -> dict:
         """Get manifest of local answer files."""

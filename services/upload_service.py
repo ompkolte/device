@@ -75,8 +75,10 @@ class UploadService:
     def _upload_one(self, q_num: int, file_path: str) -> bool:
         """Upload a single recording."""
         try:
+            # Determine MIME type from extension
+            mime_type = "audio/ogg" if file_path.endswith(".ogg") else "audio/wav"
             with open(file_path, "rb") as f:
-                files = {"file": (os.path.basename(file_path), f, "audio/wav")}
+                files = {"file": (os.path.basename(file_path), f, mime_type)}
                 resp = requests.post(
                     f"{self._upload_url}/{q_num}",
                     files=files,
