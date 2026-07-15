@@ -39,9 +39,12 @@ logger = get_logger("pi.boot")
 
 _WIFI_CONNECT_TIMEOUT = 15  # seconds
 
+# Shared OLED instance for boot display (no buttons/audio)
+_boot_oled = None
+
 
 def _get_display():
-    """Get display function based on mode."""
+    """Get display function using direct OLED (no full hardware init)."""
     mode = os.environ.get("MODE", "simulator").lower()
     if mode == "simulator":
         def _sim_display(line1, line2="", line3="", line4=""):
@@ -52,11 +55,26 @@ def _get_display():
         return _sim_display
     else:
         try:
-            from hardware.raspberry_pi import RaspberryPiHardware
-            hw = RaspberryPiHardware()
-            return hw.display
-        except Exception:
-            return lambda *args, **kwargs: None  # No-op if display fails
+            global _boot_oled
+            if _boot_oled is None:
+                from luma.core.interface.serial import i2c
+                from luma.oled.device import ssd1306
+                addr = int(os.environ.get("OLED_ADDR", "0x3C"), 16)
+                serial = i2c(port=1, address=addr)
+                _boot_oled = ssd1306(serial)
+            
+            def _oled_display(line1, line2="", line3="", line4=""):
+                from luma.core.render import canvas
+                with canvas(_boot_oled) as draw:
+                    y = 2
+                    for ln in (line1, line2, line3, line4):
+                        if ln:
+                            draw.text((2, y), ln, fill="white")
+                        y += 15
+            return _oled_display
+        except Exception as e:
+            logger.warning("Boot display init failed: %s", e)
+            return lambda *args, **kwargs: None
 
 
 def run() -> None:

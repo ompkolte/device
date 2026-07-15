@@ -11,17 +11,16 @@ from typing import Tuple
 
 from config.settings import settings
 from config.logging_config import get_logger
-from hardware import get_hardware
+from hardware.base import HardwareInterface
 
 logger = get_logger("pi.health")
 
 
-def run_health_checks() -> Tuple[bool, list[str]]:
+def run_health_checks(hw: HardwareInterface) -> Tuple[bool, list[str]]:
     """
     Run all health checks.
     Returns (all_passed, list_of_failures).
     """
-    hw = get_hardware()
     failures = []
 
     # 1. Storage check

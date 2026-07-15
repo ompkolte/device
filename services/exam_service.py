@@ -149,7 +149,7 @@ class ExamService:
 
     def run_health_check(self) -> bool:
         """Run pre-exam health checks."""
-        passed, failures = run_health_checks()
+        passed, failures = run_health_checks(self.hw)
         if not passed:
             self.hw.display("तपासणी अयशस्वी", "पुन्हा प्रयत्न करा")
             logger.error("Health checks failed: %s", failures)
