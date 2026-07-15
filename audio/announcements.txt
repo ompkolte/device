@@ -1,0 +1,20 @@
+# Exam FSM Audio Announcements
+# Format: filename.ogg - [Marathi Text]
+# Place all .ogg files in this directory (pi-client/audio/)
+
+## Question Mode
+question_menu.ogg - उत्तर रेकॉर्ड करण्यासाठी R दाबा। उत्तर पूर्ण झाल्यावर रेकॉर्डिंग जतन करून थांबवण्यासाठी पुन्हा R दाबा। प्रश्न पुन्हा ऐकण्यासाठी T दाबा। हा प्रश्न वगळण्यासाठी N दाबा।
+
+## Answer Mode
+answer_menu.ogg - तुमचे उत्तर पुन्हा रेकॉर्ड करण्यासाठी R दाबा। उत्तर पूर्ण झाल्यावर रेकॉर्डिंग जतन करून थांबवण्यासाठी पुन्हा R दाबा। प्रश्न पुन्हा सुरू करण्यासाठी Y दाबा। प्रश्न आणि तुमचे रेकॉर्ड केलेले उत्तर पुन्हा ऐकण्यासाठी T दाबा। उत्तर सबमिट करून पुढील प्रश्नासाठी N दाबा।
+
+## Recording
+recording_started.ogg - रेकॉर्डिंग सुरू झाले आहे।
+recording_stopped.ogg - रेकॉर्डिंग पूर्ण झाले आहे।
+
+## Exam Lifecycle
+exam_start.ogg - परीक्षा सुरू होत आहे।
+exam_end.ogg - परीक्षा पूर्ण झाली।
+time_warning.ogg - ५ मिनिटे शिल्लक आहेत।
+time_expired.ogg - वेळ संपला। उत्तरे सबमिट होत आहेत।
+question_skipped.ogg - प्रश्न वगळला।

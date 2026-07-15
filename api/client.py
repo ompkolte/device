@@ -4,7 +4,6 @@ Uses httpx with async support and automatic retries.
 """
 
 import asyncio
-from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
@@ -13,6 +12,7 @@ from config.settings import settings
 from config.logging_config import get_logger
 from system.identity import DeviceIdentity
 from system.sysinfo import SystemInfo
+from utils.timezone import now_ist
 
 logger = get_logger("pi.api_client")
 
@@ -25,6 +25,7 @@ async def register_device(identity: DeviceIdentity, sysinfo: SystemInfo) -> bool
     """POST /api/devices/register — returns True on success."""
     payload = {
         "device_uuid": identity.device_uuid,
+        "device_number": settings.device_number,
         "device_name": identity.device_name,
         "hostname": sysinfo.hostname,
         "mac_address": sysinfo.mac_address,
@@ -61,7 +62,7 @@ async def send_heartbeat(identity: DeviceIdentity, sysinfo: SystemInfo) -> bool:
         "status": "online",
         "ip_address": sysinfo.ip_address,
         "hostname": sysinfo.hostname,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_ist().isoformat(),
     }
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:

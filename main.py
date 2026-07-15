@@ -22,7 +22,8 @@ from system.identity import load_or_create_identity, mark_registered
 from system.sysinfo import collect as collect_sysinfo
 from api.client import register_device
 from services.heartbeat_service import run_http_heartbeat
-from websocket.ws_client import run_websocket
+from services.exam_service import ExamService
+from websocket.ws_client import run_websocket, set_exam_service
 
 setup_logging()
 logger = get_logger("pi.main")
@@ -31,6 +32,7 @@ logger = get_logger("pi.main")
 async def main() -> None:
     logger.info("=== Pi Device Management Client starting ===")
     logger.info("Backend: %s", settings.backend_url)
+    logger.info("Mode: %s | Device: %s", settings.mode, settings.device_number)
 
     # ── WiFi startup ──────────────────────────────────────────────────────────
     wifi_boot()  # blocks until network is available; skipped in simulator mode
@@ -50,6 +52,11 @@ async def main() -> None:
         sys.exit(1)
     mark_registered(identity)
 
+    # ── Initialize exam service ───────────────────────────────────────────────
+    exam_service = ExamService()
+    set_exam_service(exam_service)
+    logger.info("Exam service initialized")
+
     # ── Background tasks ──────────────────────────────────────────────────────
     stop_event = asyncio.Event()
 
@@ -63,6 +70,9 @@ async def main() -> None:
         except NotImplementedError:
             # Windows doesn't support add_signal_handler for all signals
             signal.signal(sig, _shutdown)
+
+    # Display ready status
+    exam_service.hw.display(f"Device {settings.device_number}", "ONLINE - Waiting")
 
     await asyncio.gather(
         run_http_heartbeat(identity, stop_event),

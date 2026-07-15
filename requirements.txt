@@ -2,3 +2,13 @@ httpx==0.27.2
 websockets==14.1
 python-dotenv==1.0.1
 psutil==6.1.0
+
+# Audio (simulator mode)
+sounddevice==0.5.1
+soundfile==0.12.1
+numpy==2.0.2
+
+# Raspberry Pi specific (install only on Pi)
+# gpiozero==2.0.1
+# luma.oled==3.14.0
+# pillow==11.0.0

@@ -11,7 +11,14 @@ load_dotenv()
 
 class PiSettings:
     backend_url: str = os.environ.get("BACKEND_URL", "http://localhost:8001")
+    main_backend_url: str = os.environ.get("MAIN_BACKEND_URL", "http://localhost:8000")
     software_version: str = os.environ.get("SOFTWARE_VERSION", "1.0.0")
+
+    # Hardware mode: simulator or raspberry
+    mode: str = os.environ.get("MODE", "simulator")
+
+    # Permanent device number (D001, D002, etc.) — set once per device
+    device_number: str = os.environ.get("DEVICE_NUMBER", "D001")
 
     # Heartbeat interval in seconds
     heartbeat_interval: int = int(os.environ.get("HEARTBEAT_INTERVAL", "30"))
@@ -29,6 +36,12 @@ class PiSettings:
     device_config_path: str = os.environ.get(
         "DEVICE_CONFIG_PATH",
         os.path.join(os.path.dirname(__file__), "..", "config", "device.json"),
+    )
+
+    # Local storage for exam data
+    storage_dir: str = os.environ.get(
+        "STORAGE_DIR",
+        os.path.join(os.path.dirname(__file__), "..", "storage"),
     )
 
     log_dir: str = os.environ.get("LOG_DIR", os.path.join(os.path.dirname(__file__), "..", "logs"))
