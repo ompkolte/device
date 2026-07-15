@@ -26,11 +26,17 @@ def _show_system_on():
         print("\n[DISPLAY] SYSTEM ON")
     else:
         try:
-            from hardware.raspberry_pi import RaspberryPiHardware
-            hw = RaspberryPiHardware()
-            hw.display("SYSTEM ON")
+            # Direct OLED call — don't init full hardware (buttons would claim GPIO)
+            from luma.core.interface.serial import i2c
+            from luma.oled.device import ssd1306
+            from luma.core.render import canvas
+            addr = int(os.environ.get("OLED_ADDR", "0x3C"), 16)
+            serial = i2c(port=1, address=addr)
+            oled = ssd1306(serial)
+            with canvas(oled) as draw:
+                draw.text((2, 20), "SYSTEM ON", fill="white")
         except Exception as e:
-            print(f"[WARN] Display init failed: {e}")  # Log error, don't hide it
+            print(f"[WARN] Display init failed: {e}")
 
 _show_system_on()
 
