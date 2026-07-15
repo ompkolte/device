@@ -75,7 +75,7 @@ _CHANNELS = 1
 _PIN_RECORD = int(os.environ.get("PIN_RECORD", 17))
 _PIN_RETRY = int(os.environ.get("PIN_RETRY", 27))
 _PIN_NEXT = int(os.environ.get("PIN_NEXT", 22))
-_PIN_REPEAT = int(os.environ.get("PIN_REPEAT", 10))
+_PIN_REPEAT = int(os.environ.get("PIN_REPEAT", 23))
 
 
 def _resolve_audio_device(kind: str):

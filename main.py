@@ -29,8 +29,8 @@ def _show_system_on():
             from hardware.raspberry_pi import RaspberryPiHardware
             hw = RaspberryPiHardware()
             hw.display("SYSTEM ON")
-        except Exception:
-            pass  # Continue boot even if display fails
+        except Exception as e:
+            print(f"[WARN] Display init failed: {e}")  # Log error, don't hide it
 
 _show_system_on()
 
