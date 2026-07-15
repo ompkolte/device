@@ -15,13 +15,22 @@ _WIFI_CONNECT_TIMEOUT = 20  # seconds
 
 
 def is_currently_connected() -> bool:
-    """Return True if any wifi interface is currently connected."""
+    """Return True if wifi is connected AND has internet access."""
     try:
+        # First check nmcli reports wifi connected
         result = subprocess.run(
             ["nmcli", "-t", "-f", "TYPE,STATE", "device"],
             capture_output=True, text=True, timeout=5,
         )
-        return "wifi:connected" in result.stdout
+        if "wifi:connected" not in result.stdout:
+            return False
+        
+        # Verify actual internet access (ping a reliable host)
+        ping = subprocess.run(
+            ["ping", "-c", "1", "-W", "2", "8.8.8.8"],
+            capture_output=True, timeout=5,
+        )
+        return ping.returncode == 0
     except Exception as e:
         logger.debug("is_currently_connected check failed: %s", e)
         return False

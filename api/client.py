@@ -17,12 +17,11 @@ from utils.timezone import now_ist
 logger = get_logger("pi.api_client")
 
 _TIMEOUT = httpx.Timeout(10.0)
-_MAX_RETRIES = 5
-_RETRY_BACKOFF = 2.0  # seconds, doubles each attempt
+_RETRY_DELAY = 5.0  # seconds between retries
 
 
 async def register_device(identity: DeviceIdentity, sysinfo: SystemInfo) -> bool:
-    """POST /api/devices/register — returns True on success."""
+    """POST /api/devices/register — retries every 5s until success."""
     payload = {
         "device_uuid": identity.device_uuid,
         "device_number": settings.device_number,
@@ -34,7 +33,9 @@ async def register_device(identity: DeviceIdentity, sysinfo: SystemInfo) -> bool
         "os_version": sysinfo.os_version,
     }
 
-    for attempt in range(1, _MAX_RETRIES + 1):
+    attempt = 0
+    while True:
+        attempt += 1
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
                 resp = await client.post(settings.register_url, json=payload)
@@ -45,14 +46,10 @@ async def register_device(identity: DeviceIdentity, sysinfo: SystemInfo) -> bool
                     return True
         except httpx.HTTPStatusError as e:
             logger.error("Registration HTTP error %s: %s", e.response.status_code, e.response.text)
-            return False
         except Exception as e:
-            wait = _RETRY_BACKOFF * attempt
-            logger.warning("Registration attempt %d failed (%s). Retrying in %.0fs.", attempt, e, wait)
-            await asyncio.sleep(wait)
+            logger.warning("Registration attempt %d failed. Retrying in 5s.", attempt)
 
-    logger.error("Registration failed after %d attempts.", _MAX_RETRIES)
-    return False
+        await asyncio.sleep(_RETRY_DELAY)
 
 
 async def send_heartbeat(identity: DeviceIdentity, sysinfo: SystemInfo) -> bool:
