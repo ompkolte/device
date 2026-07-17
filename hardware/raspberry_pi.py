@@ -48,6 +48,8 @@ import time
 import wave
 import queue
 import threading
+import subprocess
+import socket
 
 import numpy as np
 import sounddevice as sd
@@ -59,6 +61,10 @@ from luma.core.render import canvas
 from PIL import ImageFont, Image, ImageDraw
 
 from .base import HardwareInterface
+
+_PING_HOST = "8.8.8.8"
+_PING_INTERVAL = 3       # seconds between pings
+_PING_FAIL_THRESHOLD = 2 # consecutive failures before Offline
 
 _DISPLAY_WIDTH = 128
 _DISPLAY_HEIGHT = 64
@@ -160,6 +166,17 @@ class RaspberryPiHardware(HardwareInterface):
         self._rec_writer: threading.Thread = None
         self._rec_path: str = None
 
+        # ── Persistent bar state ──────────────────────────────────────────────
+        self._bar_online: bool = False
+        self._bar_ip: str = self._get_ip()
+        self._bar_student: str = "--"
+        self._bar_exam: str = "--"
+        self._ping_fail_count: int = 0
+
+        # Start background ping thread
+        self._ping_stop = threading.Event()
+        threading.Thread(target=self._ping_loop, daemon=True).start()
+
     # ──────────────────────────────────────────────────────────────────────────
     # OLED
     # ──────────────────────────────────────────────────────────────────────────
@@ -220,15 +237,70 @@ class RaspberryPiHardware(HardwareInterface):
         # Return to start
         self._draw_static(other_lines[:line_idx] + [text] + other_lines[line_idx + 1:])
 
-    def display(self, line1: str, line2: str = "", line3: str = "", line4: str = "") -> None:
-        """Display up to 4 lines. Long lines scroll in background thread."""
+    @staticmethod
+    def _get_ip() -> str:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                return s.getsockname()[0]
+        except Exception:
+            return "?"
+
+    def _ping_loop(self) -> None:
+        while not self._ping_stop.is_set():
+            try:
+                result = subprocess.run(
+                    ["ping", "-c", "1", "-W", "2", _PING_HOST],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+                if result.returncode == 0:
+                    self._ping_fail_count = 0
+                    if not self._bar_online:
+                        self._bar_online = True
+                        self._bar_ip = self._get_ip()
+                        self._refresh_bar()
+                else:
+                    self._ping_fail_count += 1
+                    if self._ping_fail_count >= _PING_FAIL_THRESHOLD and self._bar_online:
+                        self._bar_online = False
+                        self._refresh_bar()
+            except Exception:
+                self._ping_fail_count += 1
+                if self._ping_fail_count >= _PING_FAIL_THRESHOLD and self._bar_online:
+                    self._bar_online = False
+                    self._refresh_bar()
+            self._ping_stop.wait(_PING_INTERVAL)
+
+    def _bar_lines(self) -> tuple[str, str]:
+        line3 = f"Online {self._bar_ip}" if self._bar_online else "Offline"
+        line4 = f"S:{self._bar_student} E:{self._bar_exam}"
+        return line3, line4
+
+    def _refresh_bar(self) -> None:
+        """Redraw OLED keeping current line1/line2 (stored in _last_lines)."""
+        l1, l2 = getattr(self, "_last_lines", ("", ""))
+        l3, l4 = self._bar_lines()
+        self._draw_static([l1, l2, l3, l4])
+
+    def update_bar(self, student_id: str = None, exam_code: str = None) -> None:
+        """Update persistent bar with assignment info and redraw."""
+        if student_id is not None:
+            self._bar_student = str(student_id)
+        if exam_code is not None:
+            self._bar_exam = str(exam_code)
+        self._refresh_bar()
+
+    def display(self, line1: str, line2: str = "") -> None:
+        """Display lines 1-2; lines 3-4 are always the persistent bar."""
         # Stop any existing scroll thread
         if hasattr(self, "_scroll_stop"):
             self._scroll_stop.set()
             if hasattr(self, "_scroll_thread") and self._scroll_thread.is_alive():
                 self._scroll_thread.join(timeout=0.5)
 
-        lines = [line1, line2, line3, line4]
+        self._last_lines = (line1, line2)
+        l3, l4 = self._bar_lines()
+        lines = [line1, line2, l3, l4]
         self._draw_static(lines)
 
         # Find lines that need scrolling

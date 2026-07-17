@@ -47,11 +47,10 @@ def _get_display():
     """Get display function using direct OLED (no full hardware init)."""
     mode = os.environ.get("MODE", "simulator").lower()
     if mode == "simulator":
-        def _sim_display(line1, line2="", line3="", line4=""):
+        def _sim_display(line1, line2=""):
             print(f"[DISPLAY] {line1}")
-            for ln in (line2, line3, line4):
-                if ln:
-                    print(f"          {ln}")
+            if line2:
+                print(f"          {line2}")
         return _sim_display
     else:
         try:
@@ -63,14 +62,12 @@ def _get_display():
                 serial = i2c(port=1, address=addr)
                 _boot_oled = ssd1306(serial)
             
-            def _oled_display(line1, line2="", line3="", line4=""):
+            def _oled_display(line1, line2=""):
                 from luma.core.render import canvas
                 with canvas(_boot_oled) as draw:
-                    y = 2
-                    for ln in (line1, line2, line3, line4):
+                    for i, ln in enumerate((line1, line2)):
                         if ln:
-                            draw.text((2, y), ln, fill="white")
-                        y += 15
+                            draw.text((2, 2 + i * 15), ln, fill="white")
             return _oled_display
         except Exception as e:
             logger.warning("Boot display init failed: %s", e)

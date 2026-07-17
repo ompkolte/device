@@ -17,5 +17,9 @@ class HardwareInterface(ABC):
     """Returns one of: 'record' | 'retry' | 'next' | 'repeat'"""
 
     @abstractmethod
-    def display(self, line1: str, line2: str = "", line3: str = "", line4: str = "") -> None: ...
+    def display(self, line1: str, line2: str = "") -> None: ...
     """OLED display on Pi (4 lines); console print in simulator."""
+
+    def update_bar(self, student_id: str = None, exam_code: str = None) -> None:
+        """Update persistent bar state (lines 3-4). Override in Pi hardware."""
+        pass

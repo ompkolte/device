@@ -54,11 +54,10 @@ class SimulatorHardware(HardwareInterface):
         self._frames: list = []
         self._stream = None
 
-    def display(self, line1: str, line2: str = "", line3: str = "", line4: str = "") -> None:
+    def display(self, line1: str, line2: str = "") -> None:
         print(f"\n[DISPLAY] {line1}")
-        for ln in (line2, line3, line4):
-            if ln:
-                print(f"          {ln}")
+        if line2:
+            print(f"          {line2}")
 
     def play_audio(self, wav_path: str, interruptible: bool = False) -> None:
         if not os.path.exists(wav_path):

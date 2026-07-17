@@ -113,7 +113,7 @@ class ExamService:
 
         _update_assignment_status(self.assignment["assignment_id"], "downloading")
         _update_download_status(self.assignment["assignment_id"], "downloading")
-        self.hw.display("डाउनलोड करत आहे...", "")
+        self.hw.display("Downloading...", "")
         questions = self.assignment.get("questions", [])
         
         for q in questions:
@@ -139,19 +139,19 @@ class ExamService:
                 logger.error("Failed to download q%d: %s", q["q_num"], e)
                 _update_assignment_status(self.assignment["assignment_id"], "download_failed")
                 _update_download_status(self.assignment["assignment_id"], "failed")
-                self.hw.display("डाउनलोड अयशस्वी", f"प्रश्न {q['q_num']}")
+                self.hw.display("Download Failed", f"Q{q['q_num']}")
                 return False
 
         _update_assignment_status(self.assignment["assignment_id"], "ready")
         _update_download_status(self.assignment["assignment_id"], "ready")
-        self.hw.display("डाउनलोड पूर्ण", "")
+        self.hw.display("Download Done", "")
         return True
 
     def run_health_check(self) -> bool:
         """Run pre-exam health checks."""
         passed, failures = run_health_checks(self.hw)
         if not passed:
-            self.hw.display("तपासणी अयशस्वी", "पुन्हा प्रयत्न करा")
+            self.hw.display("Health Check Failed", "Retry")
             logger.error("Health checks failed: %s", failures)
         return passed
 
@@ -168,7 +168,7 @@ class ExamService:
         student_id = self.assignment["student_id"]
         duration_minutes = self.assignment.get("duration_minutes", 60)
 
-        self.hw.display(self.assignment["exam_name"], "सुरू करण्यासाठी N दाबा")
+        self.hw.display(self.assignment["exam_name"], "Press N to Start")
         logger.info("Waiting for student to start exam")
         
         # Wait for START button (N = next)
@@ -189,7 +189,7 @@ class ExamService:
         # Play exam start announcement
         if os.path.exists(ANNOUNCEMENTS.get("exam_start", "")):
             self.hw.play_audio(ANNOUNCEMENTS["exam_start"])
-        self.hw.display("परीक्षा सुरू!", "")
+        self.hw.display("Exam Started!", "")
 
         # Shared ref for FSM access from timer thread
         fsm_ref = [None]
@@ -257,13 +257,13 @@ class ExamService:
         time_expired = now_ist().timestamp() >= exam_end_time
         
         if time_expired:
-            self.hw.display(f"उत्तरे: {answered}/{total}", "स्वयं-सबमिट...")
+            self.hw.display(f"Ans: {answered}/{total}", "Auto-submit...")
             logger.info("Time expired, auto-submitting %d/%d", answered, total)
         else:
             # Play exam end announcement
             if os.path.exists(ANNOUNCEMENTS.get("exam_end", "")):
                 self.hw.play_audio(ANNOUNCEMENTS["exam_end"])
-            self.hw.display(f"उत्तरे: {answered}/{total}", "R=सबमिट")
+            self.hw.display(f"Ans: {answered}/{total}", "R=Submit")
             logger.info("Exam complete: %d/%d answered", answered, total)
             # Wait for SUBMIT button
             while True:
@@ -272,15 +272,15 @@ class ExamService:
                     break
 
         # Smart submission: upload only missing
-        self.hw.display("सबमिट करत आहे...", "")
+        self.hw.display("Submitting...", "")
         submit_ok = True
         if self.upload_service:
             submit_ok = self.upload_service.finalize(answer_files)
 
         if submit_ok:
-            self.hw.display("सबमिट यशस्वी!", "धन्यवाद")
+            self.hw.display("Submit OK!", "Thank you")
         else:
-            self.hw.display("सबमिट अयशस्वी", "पुन्हा प्रयत्न करा")
+            self.hw.display("Submit Failed", "Retry")
         logger.info("Submission complete")
 
         return answer_files

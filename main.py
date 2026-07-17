@@ -24,9 +24,10 @@ def _show_system_on():
     mode = os.environ.get("MODE", "simulator").lower()
     if mode == "simulator":
         print("\n[DISPLAY] SYSTEM ON")
+        print("          Offline")
+        print("          S:-- E:--")
     else:
         try:
-            # Direct OLED call — don't init full hardware (buttons would claim GPIO)
             from luma.core.interface.serial import i2c
             from luma.oled.device import ssd1306
             from luma.core.render import canvas
@@ -34,7 +35,9 @@ def _show_system_on():
             serial = i2c(port=1, address=addr)
             oled = ssd1306(serial)
             with canvas(oled) as draw:
-                draw.text((2, 20), "SYSTEM ON", fill="white")
+                draw.text((2, 2),  "SYSTEM ON", fill="white")
+                draw.text((2, 32), "Offline",   fill="white")
+                draw.text((2, 47), "S:-- E:--",  fill="white")
         except Exception as e:
             print(f"[WARN] Display init failed: {e}")
 
@@ -95,7 +98,7 @@ async def main() -> None:
             signal.signal(sig, _shutdown)
 
     # Display ready status
-    exam_service.hw.display(f"Device {settings.device_number}", "ONLINE - Waiting")
+    exam_service.hw.display(f"Device {settings.device_number}", "Waiting...")
 
     await asyncio.gather(
         run_http_heartbeat(identity, stop_event),

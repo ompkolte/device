@@ -108,19 +108,19 @@ class ExamFSM:
         q_num = q["q_num"]
         total = len(self.questions)
         
-        self.display(f"प्रश्न {q_num}/{total}", "ऐकत आहे...")
+        self.display(f"Q {q_num}/{total}", "Listening...")
         logger.info("QUESTION_MODE: q%d", q_num)
         
         self._play_question()
         self._announce("question_menu")
-        self.display(f"प्रश्न {q_num}/{total}", "R|T|N")
+        self.display(f"Q {q_num}/{total}", "R|T|N")
     
     def _enter_record_state(self) -> None:
         """Entry: start mic + announce recording started."""
         self.state = State.RECORD_STATE
         q_num = self.questions[self.question_index]["q_num"]
         
-        self.display(f"प्रश्न {q_num}", "रेकॉर्डिंग...")
+        self.display(f"Q {q_num}", "Recording...")
         logger.info("RECORD_STATE: recording q%d", q_num)
         
         self._announce("recording_started")
@@ -131,7 +131,7 @@ class ExamFSM:
         self.state = State.ANSWER_MODE
         q_num = self.questions[self.question_index]["q_num"]
         
-        self.display(f"प्रश्न {q_num}", "उत्तर R|T|Y|N")
+        self.display(f"Q {q_num}", "Ans R|T|Y|N")
         logger.info("ANSWER_MODE: q%d", q_num)
         
         self._announce("answer_menu")
@@ -187,7 +187,7 @@ class ExamFSM:
             except Exception as e:
                 # I/O error during save — stay in record state, let user retry
                 logger.error("Failed to save recording: %s", e)
-                self.display(f"प्रश्न {self.questions[self.question_index]['q_num']}", "जतन अयशस्वी, पुन्हा R")
+                self.display(f"Q {self.questions[self.question_index]['q_num']}", "Save Failed, R")
         # All other buttons ignored during recording
     
     def _handle_answer_mode(self, btn: str) -> None:
