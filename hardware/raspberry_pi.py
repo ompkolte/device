@@ -166,6 +166,7 @@ class RaspberryPiHardware(HardwareInterface):
         self._rec_path: str = None
 
         # ── Persistent bar state ──────────────────────────────────────────────
+        self._oled_lock = threading.Lock()
         self._bar_online: bool = False
         self._bar_ip: str = self._get_ip()
         self._bar_student: str = "--"
@@ -203,10 +204,11 @@ class RaspberryPiHardware(HardwareInterface):
 
     def _draw_static(self, lines: list[str]) -> None:
         """Draw up to 4 lines without scrolling."""
-        with canvas(self._oled) as draw:
-            for i, txt in enumerate(lines[:4]):
-                if txt:
-                    draw.text((2, _LINE_Y[i]), txt, font=self._font, fill="white")
+        with self._oled_lock:
+            with canvas(self._oled) as draw:
+                for i, txt in enumerate(lines[:4]):
+                    if txt:
+                        draw.text((2, _LINE_Y[i]), txt, font=self._font, fill="white")
 
     def _scroll_line(self, line_idx: int, text: str, other_lines: list[str], stop_flag: threading.Event) -> None:
         """Scroll a single line: left to end, pause, return to start."""
@@ -225,7 +227,8 @@ class RaspberryPiHardware(HardwareInterface):
                 if txt and i != line_idx:
                     draw.text((2, _LINE_Y[i]), txt, font=self._font, fill="white")
             draw.text((2 - offset, _LINE_Y[line_idx]), text, font=self._font, fill="white")
-            self._oled.display(img)
+            with self._oled_lock:
+                self._oled.display(img)
             time.sleep(_SCROLL_DELAY)
 
         # Pause at end
