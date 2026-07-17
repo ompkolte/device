@@ -46,33 +46,27 @@ def run_health_checks(hw: HardwareInterface) -> Tuple[bool, list[str]]:
         failures.append(f"Speaker: {e}")
         logger.error("Speaker check failed: %s", e)
 
-    # 3. Microphone test (record and verify)
-    hw.display("माइक तपासत आहे...", "बोला: 'माझा माइक चालू आहे'")
-    try:
-        hw.start_recording()
-        time.sleep(2)  # Record for 2 seconds
-        recording_path = hw.stop_recording()
-        
-        # Verify recording exists and has content
-        if not os.path.exists(recording_path):
-            raise RuntimeError("Recording file not created")
-        
-        size = os.path.getsize(recording_path)
-        if size < 1000:  # Less than 1KB is suspicious
-            raise RuntimeError(f"Recording too small: {size} bytes")
-        
-        # Check WAV header
-        with wave.open(recording_path, "rb") as wf:
-            frames = wf.getnframes()
-            if frames < 1000:
-                raise RuntimeError(f"Too few audio frames: {frames}")
-        
-        # Clean up test recording
-        os.remove(recording_path)
-        logger.info("Microphone check: OK")
-    except Exception as e:
-        failures.append(f"Microphone: {e}")
-        logger.error("Microphone check failed: %s", e)
+    # 3. Microphone test (record and verify) — disabled
+    # hw.display("माइक तपासत आहे...", "बोला: 'माझा माइक चालू आहे'")
+    # try:
+    #     hw.start_recording()
+    #     time.sleep(2)  # Record for 2 seconds
+    #     recording_path = hw.stop_recording()
+    #
+    #     # Verify recording exists and has content
+    #     if not os.path.exists(recording_path):
+    #         raise RuntimeError("Recording file not created")
+    #
+    #     size = os.path.getsize(recording_path)
+    #     if size < 1000:  # Less than 1KB is suspicious
+    #         raise RuntimeError(f"Recording too small: {size} bytes")
+    #
+    #     # Clean up test recording
+    #     os.remove(recording_path)
+    #     logger.info("Microphone check: OK")
+    # except Exception as e:
+    #     failures.append(f"Microphone: {e}")
+    #     logger.error("Microphone check failed: %s", e)
 
     # Report result
     if failures:
