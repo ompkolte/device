@@ -69,8 +69,7 @@ _PING_FAIL_THRESHOLD = 2 # consecutive failures before Offline
 _DISPLAY_WIDTH = 128
 _DISPLAY_HEIGHT = 64
 _FONT_SIZE = 10
-_LINE_HEIGHT = 15  # 4 lines: y=2, 17, 32, 47 fit in 64px
-_LINE_Y = [2, 17, 32, 47]
+_LINE_Y = [2, 18, 34, 50]  # 4 lines, 16px apart, font height ~10px
 _SCROLL_DELAY = 0.05  # seconds per pixel shift
 _SCROLL_PAUSE = 0.8   # pause at end before returning
 
@@ -184,6 +183,7 @@ class RaspberryPiHardware(HardwareInterface):
         font_path = os.environ.get("OLED_FONT")
         candidates = [font_path] if font_path else []
         candidates += [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             os.path.join(os.path.dirname(__file__), "..", "fonts", "NotoSansDevanagari-Regular.ttf"),
             "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",
         ]
@@ -193,9 +193,6 @@ class RaspberryPiHardware(HardwareInterface):
                     return ImageFont.truetype(path, _FONT_SIZE)
                 except Exception:
                     pass
-        # Fallback: PIL's built-in bitmap font (Latin only — Devanagari shows as boxes).
-        print("[WARN] No Devanagari TTF found; OLED Marathi text may not render. "
-              "Set OLED_FONT or drop NotoSansDevanagari-Regular.ttf in device/fonts/.")
         return ImageFont.load_default()
 
     def _text_width(self, text: str) -> int:

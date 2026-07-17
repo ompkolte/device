@@ -26,21 +26,32 @@ User connects to hotspot → opens http://192.168.4.1
  ▼
 Enter WiFi credentials → connect → proceed
 
+FORCE_HOTSPOT mode: if connected SSID == FORCE_HOTSPOT_SSID, ignore and go to hotspot.
 Simulator mode: skipped entirely (assumes network available).
 """
 
 import os
 import time
+from PIL import ImageFont
 
 from config.logging_config import get_logger
 from config.settings import settings
 
 logger = get_logger("pi.boot")
 
-_WIFI_CONNECT_TIMEOUT = 15  # seconds
+_WIFI_CONNECT_TIMEOUT = 15
+_BOOT_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+_BOOT_FONT_SIZE = 10
+_LINE_Y = [2, 18, 34, 50]
 
-# Shared OLED instance for boot display (no buttons/audio)
 _boot_oled = None
+
+
+def _load_boot_font():
+    try:
+        return ImageFont.truetype(_BOOT_FONT_PATH, _BOOT_FONT_SIZE)
+    except Exception:
+        return ImageFont.load_default()
 
 
 def _get_display():
@@ -61,17 +72,29 @@ def _get_display():
                 addr = int(os.environ.get("OLED_ADDR", "0x3C"), 16)
                 serial = i2c(port=1, address=addr)
                 _boot_oled = ssd1306(serial)
-            
+
+            font = _load_boot_font()
+
             def _oled_display(line1, line2=""):
                 from luma.core.render import canvas
                 with canvas(_boot_oled) as draw:
                     for i, ln in enumerate((line1, line2)):
                         if ln:
-                            draw.text((2, 2 + i * 15), ln, fill="white")
+                            draw.text((2, _LINE_Y[i]), ln, font=font, fill="white")
             return _oled_display
         except Exception as e:
             logger.warning("Boot display init failed: %s", e)
             return lambda *args, **kwargs: None
+
+
+def _get_connected_ssid() -> str:
+    """Return currently connected WiFi SSID, or empty string."""
+    try:
+        import subprocess
+        result = subprocess.run(["iwgetid", "-r"], capture_output=True, text=True, timeout=3)
+        return result.stdout.strip()
+    except Exception:
+        return ""
 
 
 def run() -> None:
@@ -94,6 +117,18 @@ def run() -> None:
     )
 
     display("Checking WiFi", "Please wait...")
+
+    # FORCE_HOTSPOT: if connected to the test SSID, ignore it and go to hotspot
+    if settings.force_hotspot:
+        connected_ssid = _get_connected_ssid()
+        if connected_ssid and connected_ssid == settings.force_hotspot_ssid:
+            logger.info("FORCE_HOTSPOT: connected to %r — ignoring, going to hotspot.", connected_ssid)
+            display("Force Hotspot", f"Ignoring {connected_ssid}")
+            _hotspot_setup_loop(display)
+            return
+        # Connected to a different SSID — proceed normally
+        logger.info("FORCE_HOTSPOT set but connected to %r (not %r) — proceeding normally.",
+                    connected_ssid, settings.force_hotspot_ssid)
 
     # Fast path: already connected
     if is_currently_connected():
@@ -123,7 +158,6 @@ def _hotspot_setup_loop(display) -> None:
         start_hotspot,
         stop_hotspot,
         connect_to_wifi,
-        is_currently_connected,
     )
     from startup.captive_portal import CaptivePortal
 
@@ -157,7 +191,6 @@ def _hotspot_setup_loop(display) -> None:
             logger.warning("No credentials received. Restarting hotspot.")
             continue
 
-        # Truncate SSID for display (max ~18 chars)
         ssid_short = credentials["ssid"][:16] + ".." if len(credentials["ssid"]) > 18 else credentials["ssid"]
         display("Connecting...", ssid_short)
         logger.info("Connecting to WiFi | ssid=%s", credentials["ssid"])

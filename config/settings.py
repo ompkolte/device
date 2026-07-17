@@ -32,6 +32,10 @@ class PiSettings:
     captive_portal_host: str = os.environ.get("CAPTIVE_PORTAL_HOST", "192.168.4.1")
     captive_portal_port: int = int(os.environ.get("CAPTIVE_PORTAL_PORT", "80"))
 
+    # Force hotspot mode for testing — ignores FORCE_HOTSPOT_SSID even if connected
+    force_hotspot: bool = os.environ.get("FORCE_HOTSPOT", "false").lower() == "true"
+    force_hotspot_ssid: str = os.environ.get("FORCE_HOTSPOT_SSID", "")
+
     # Path to persist device identity
     device_config_path: str = os.environ.get(
         "DEVICE_CONFIG_PATH",
