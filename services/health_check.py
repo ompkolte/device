@@ -37,7 +37,7 @@ def run_health_checks(hw: HardwareInterface) -> Tuple[bool, list[str]]:
         logger.error("Storage check failed: %s", e)
 
     # 2. Speaker test (play beep)
-    hw.display("स्पीकर तपासत आहे...", "")
+    hw.display("Checking speaker...", "")
     try:
         # Generate a short test tone
         _play_test_tone(hw)
@@ -70,11 +70,11 @@ def run_health_checks(hw: HardwareInterface) -> Tuple[bool, list[str]]:
 
     # Report result
     if failures:
-        hw.display("तपासणी अयशस्वी", f"{len(failures)} समस्या")
+        hw.display("Check Failed", f"{len(failures)} issues")
         logger.warning("Health checks failed: %s", failures)
         return False, failures
     else:
-        hw.display("तपासणी यशस्वी", "सर्व ठीक आहे")
+        hw.display("Check Passed", "All OK")
         logger.info("All health checks passed")
         return True, []
 

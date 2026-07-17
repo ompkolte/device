@@ -61,7 +61,7 @@ async def run_websocket(identity: DeviceIdentity, stop_event: asyncio.Event) -> 
                 if pending and isinstance(pending, dict) and _exam_service and not _exam_service.assignment:
                     if _exam_service.hw:
                         logger.info("Pending assignment found, waiting for invigilator action")
-                        _exam_service.hw.display("पूर्वीचे सत्र", "इन्व्हिजिलेटरची वाट पहा")
+                        _exam_service.hw.display("Pending Session", "Waiting for invigilator")
                         _exam_service._pending_package = pending
                 
                 await asyncio.gather(
@@ -134,7 +134,7 @@ async def _handle_assignment(package: dict) -> None:
             ready = await loop.run_in_executor(pool, download_and_check)
             if ready:
                 logger.info("Device ready, waiting for exam start signal")
-                _exam_service.hw.display("तयार आहे", "परीक्षा सुरू होण्याची वाट पहा")
+                _exam_service.hw.display("Ready", "Waiting for exam")
                 # ponytail: device now waits for exam_status event to run exam
     except Exception as e:
         logger.error("Download/check error: %s", e)
@@ -198,7 +198,7 @@ def _handle_reset() -> None:
     
     _exam_service.assignment = None
     _exam_service._pending_package = None
-    _exam_service.hw.display("रीसेट झाले", "नवीन सत्रासाठी तयार")
+    _exam_service.hw.display("Reset Done", "Ready for new session")
     logger.info("Device session reset")
 
 
