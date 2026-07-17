@@ -309,7 +309,7 @@ class RaspberryPiHardware(HardwareInterface):
     def start_recording(self) -> None:
         self._frames = []
         self._recording = True
-        self._cue("record_start", fallback_freq=880.0)  # rising "go" beep
+        self._cue("record_start", fallback_freq=880.0)
         try:
             self._stream = sd.InputStream(
                 samplerate=self._sample_rate,
@@ -321,11 +321,9 @@ class RaspberryPiHardware(HardwareInterface):
             self._stream.start()
         except Exception as e:
             print(f"[REC] Mic init failed: {e}")
-            self._stream = None  # Allows stop_recording to handle gracefully
+            self._stream = None
 
     def _audio_callback(self, indata, frames, time_info, status):
-        if status:
-            print(f"[REC] stream status: {status}")
         if self._recording:
             self._frames.append(indata.copy())
 
@@ -337,13 +335,18 @@ class RaspberryPiHardware(HardwareInterface):
             self._stream = None
 
         path = os.path.join(self._recordings_dir, f"rec_{int(time.time())}.ogg")
-        audio = (
-            np.concatenate(self._frames, axis=0)
-            if self._frames
-            else np.zeros((0, _CHANNELS), dtype="int16")
-        )
-        # Save as .ogg using soundfile
-        sf.write(path, audio, self._sample_rate)
+        frames_snapshot = self._frames
+        self._frames = []
+
+        def _save():
+            audio = (
+                np.concatenate(frames_snapshot, axis=0)
+                if frames_snapshot
+                else np.zeros((0, _CHANNELS), dtype="int16")
+            )
+            sf.write(path, audio, self._sample_rate)
+
+        threading.Thread(target=_save, daemon=True).start()
         return path
 
     # ──────────────────────────────────────────────────────────────────────────
