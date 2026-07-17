@@ -1,14 +1,35 @@
+# HTTP / WebSocket
 httpx==0.27.2
 websockets==14.1
+requests==2.34.2
+
+# HTTP internals
+httpcore==1.0.9
+h11==0.16.0
+anyio==4.14.2
+sniffio==1.3.1
+
+# Config / utils
 python-dotenv==1.0.1
 psutil==6.1.0
 
-# Audio (simulator mode)
+# Encoding
+certifi==2026.6.17
+charset-normalizer==3.4.9
+idna==3.18
+urllib3==2.7.0
+
+# Audio
 sounddevice==0.5.1
 soundfile==0.12.1
 numpy==2.0.2
 
+# C FFI (sounddevice dep)
+cffi==2.1.0
+pycparser==3.0
+
 # Raspberry Pi specific (install only on Pi)
+# lgpio==0.2.2.0
 # gpiozero==2.0.1
 # luma.oled==3.14.0
 # pillow==11.0.0
