@@ -77,10 +77,10 @@ class ExamFSM:
     # Announcements
     # ─────────────────────────────────────────────────────────────────────
     def _announce(self, key: str) -> None:
-        """Play announcement .ogg file if exists."""
+        """Play announcement file — interruptible by any button press."""
         path = ANNOUNCEMENTS.get(key)
         if path and os.path.exists(path):
-            self.play_audio(path)
+            self.play_audio(path, interruptible=True)
         else:
             logger.warning("Announcement not found: %s", key)
     
@@ -123,8 +123,8 @@ class ExamFSM:
         self.display(f"प्रश्न {q_num}", "रेकॉर्डिंग...")
         logger.info("RECORD_STATE: recording q%d", q_num)
         
-        self.start_recording()
         self._announce("recording_started")
+        self.start_recording()
     
     def _enter_answer_mode(self) -> None:
         """Entry: announce answer menu."""

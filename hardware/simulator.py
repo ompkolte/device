@@ -60,7 +60,7 @@ class SimulatorHardware(HardwareInterface):
             if ln:
                 print(f"          {ln}")
 
-    def play_audio(self, wav_path: str) -> None:
+    def play_audio(self, wav_path: str, interruptible: bool = False) -> None:
         if not os.path.exists(wav_path):
             print(f"[AUDIO] (file not found: {wav_path})")
             return

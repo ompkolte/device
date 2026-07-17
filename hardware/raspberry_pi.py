@@ -252,13 +252,12 @@ class RaspberryPiHardware(HardwareInterface):
     # ──────────────────────────────────────────────────────────────────────────
     # Audio playback + cues
     # ──────────────────────────────────────────────────────────────────────────
-    def play_audio(self, wav_path: str) -> None:
+    def play_audio(self, wav_path: str, interruptible: bool = False) -> None:
         if not os.path.exists(wav_path):
             print(f"[AUDIO] file not found: {wav_path}")
             return
         try:
             data, sr = sf.read(wav_path, dtype="float32")
-            # Resample if file rate differs from what the card supports
             if sr != self._sample_rate:
                 ratio = self._sample_rate / sr
                 new_len = int(len(data) * ratio)
@@ -268,7 +267,18 @@ class RaspberryPiHardware(HardwareInterface):
                     data if data.ndim == 1 else data[:, 0],
                 ).astype(np.float32)
             sd.play(data, self._sample_rate, device=self._out_dev)
-            sd.wait()
+            if interruptible:
+                # Poll for button press — stop audio and put button back
+                while sd.get_stream().active:
+                    try:
+                        btn = self._button_queue.get(timeout=0.05)
+                        sd.stop()
+                        self._button_queue.put(btn)  # put it back for FSM to handle
+                        return
+                    except queue.Empty:
+                        continue
+            else:
+                sd.wait()
         except Exception as e:
             print(f"[AUDIO] playback error: {e}")
         self._flush_buttons()
