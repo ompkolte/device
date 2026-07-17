@@ -68,8 +68,20 @@ _LINE_Y = [2, 17, 32, 47]
 _SCROLL_DELAY = 0.05  # seconds per pixel shift
 _SCROLL_PAUSE = 0.8   # pause at end before returning
 
-_SAMPLE_RATE = 16000   # mono 16-bit — matches what the backend STT expects
+_SAMPLE_RATE_CANDIDATES = (44100, 48000, 16000)  # preferred order for USB cards
 _CHANNELS = 1
+
+
+def _detect_sample_rate(in_dev, out_dev) -> int:
+    """Return the first sample rate supported by both input and output devices."""
+    for sr in _SAMPLE_RATE_CANDIDATES:
+        try:
+            sd.check_output_settings(device=out_dev, samplerate=sr, channels=_CHANNELS)
+            sd.check_input_settings(device=in_dev, samplerate=sr, channels=_CHANNELS)
+            return sr
+        except Exception:
+            continue
+    return 44100  # last-resort fallback
 
 # Default BCM pin numbers (override with env vars). Each button -> pin and -> GND.
 _PIN_RECORD = int(os.environ.get("PIN_RECORD", 17))
@@ -111,6 +123,7 @@ class RaspberryPiHardware(HardwareInterface):
         # ── Audio devices (USB card) ──────────────────────────────────────────
         self._in_dev = _resolve_audio_device("input")
         self._out_dev = _resolve_audio_device("output")
+        self._sample_rate = _detect_sample_rate(self._in_dev, self._out_dev)
 
         # ── OLED ──────────────────────────────────────────────────────────────
         addr = int(os.environ.get("OLED_ADDR", "0x3C"), 16)
@@ -247,10 +260,10 @@ class RaspberryPiHardware(HardwareInterface):
         self._flush_buttons()
 
     def _tone(self, freq: float, dur: float = 0.15, vol: float = 0.3) -> None:
-        t = np.linspace(0, dur, int(_SAMPLE_RATE * dur), endpoint=False)
+        t = np.linspace(0, dur, int(self._sample_rate * dur), endpoint=False)
         wave_f = (np.sin(2 * np.pi * freq * t) * vol).astype(np.float32)
         try:
-            sd.play(wave_f, _SAMPLE_RATE, device=self._out_dev)
+            sd.play(wave_f, self._sample_rate, device=self._out_dev)
             sd.wait()
         except Exception as e:
             print(f"[AUDIO] tone error: {e}")
@@ -275,7 +288,7 @@ class RaspberryPiHardware(HardwareInterface):
         self._cue("record_start", fallback_freq=880.0)  # rising "go" beep
         try:
             self._stream = sd.InputStream(
-                samplerate=_SAMPLE_RATE,
+                samplerate=self._sample_rate,
                 channels=_CHANNELS,
                 dtype="int16",
                 device=self._in_dev,
@@ -306,7 +319,7 @@ class RaspberryPiHardware(HardwareInterface):
             else np.zeros((0, _CHANNELS), dtype="int16")
         )
         # Save as .ogg using soundfile
-        sf.write(path, audio, _SAMPLE_RATE)
+        sf.write(path, audio, self._sample_rate)
         return path
 
     # ──────────────────────────────────────────────────────────────────────────
