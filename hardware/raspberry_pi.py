@@ -68,20 +68,27 @@ _LINE_Y = [2, 17, 32, 47]
 _SCROLL_DELAY = 0.05  # seconds per pixel shift
 _SCROLL_PAUSE = 0.8   # pause at end before returning
 
-_SAMPLE_RATE_CANDIDATES = (44100, 48000, 16000)  # preferred order for USB cards
+_SAMPLE_RATE_CANDIDATES = (44100, 48000, 22050, 16000, 8000)
 _CHANNELS = 1
 
 
 def _detect_sample_rate(in_dev, out_dev) -> int:
-    """Return the first sample rate supported by both input and output devices."""
+    """Detect supported sample rate by actually opening test streams."""
     for sr in _SAMPLE_RATE_CANDIDATES:
         try:
-            sd.check_output_settings(device=out_dev, samplerate=sr, channels=_CHANNELS)
-            sd.check_input_settings(device=in_dev, samplerate=sr, channels=_CHANNELS)
+            s = sd.OutputStream(device=out_dev, samplerate=sr, channels=_CHANNELS, dtype="float32")
+            s.start()
+            s.stop()
+            s.close()
+            # Also verify input
+            s = sd.InputStream(device=in_dev, samplerate=sr, channels=_CHANNELS, dtype="int16")
+            s.start()
+            s.stop()
+            s.close()
             return sr
         except Exception:
             continue
-    return 44100  # last-resort fallback
+    return 44100
 
 # Default BCM pin numbers (override with env vars). Each button -> pin and -> GND.
 _PIN_RECORD = int(os.environ.get("PIN_RECORD", 17))
@@ -251,12 +258,19 @@ class RaspberryPiHardware(HardwareInterface):
             return
         try:
             data, sr = sf.read(wav_path, dtype="float32")
-            sd.play(data, sr, device=self._out_dev)
+            # Resample if file rate differs from what the card supports
+            if sr != self._sample_rate:
+                ratio = self._sample_rate / sr
+                new_len = int(len(data) * ratio)
+                data = np.interp(
+                    np.linspace(0, len(data) - 1, new_len),
+                    np.arange(len(data)),
+                    data if data.ndim == 1 else data[:, 0],
+                ).astype(np.float32)
+            sd.play(data, self._sample_rate, device=self._out_dev)
             sd.wait()
         except Exception as e:
             print(f"[AUDIO] playback error: {e}")
-        # Discard any button presses that landed during playback so the student's
-        # real choice (made after hearing the question) is what counts.
         self._flush_buttons()
 
     def _tone(self, freq: float, dur: float = 0.15, vol: float = 0.3) -> None:

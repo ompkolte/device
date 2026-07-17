@@ -16,15 +16,15 @@ logger = get_logger("pi.fsm")
 AUDIO_DIR = os.path.join(os.path.dirname(__file__), "..", "audio")
 
 ANNOUNCEMENTS = {
-    "question_menu": os.path.join(AUDIO_DIR, "question_menu.ogg"),
-    "answer_menu": os.path.join(AUDIO_DIR, "answer_menu.ogg"),
-    "recording_started": os.path.join(AUDIO_DIR, "recording_started.ogg"),
-    "recording_stopped": os.path.join(AUDIO_DIR, "recording_stopped.ogg"),
-    "exam_start": os.path.join(AUDIO_DIR, "exam_start.ogg"),
-    "exam_end": os.path.join(AUDIO_DIR, "exam_end.ogg"),
-    "time_warning": os.path.join(AUDIO_DIR, "time_warning.ogg"),
-    "time_expired": os.path.join(AUDIO_DIR, "time_expired.ogg"),
-    "question_skipped": os.path.join(AUDIO_DIR, "question_skipped.ogg"),
+    "question_menu": os.path.join(AUDIO_DIR, "question_menu.wav"),
+    "answer_menu": os.path.join(AUDIO_DIR, "answer_menu.wav"),
+    "recording_started": os.path.join(AUDIO_DIR, "recording_started.wav"),
+    "recording_stopped": os.path.join(AUDIO_DIR, "recording_stopped.wav"),
+    "exam_start": os.path.join(AUDIO_DIR, "exam_start.wav"),
+    "exam_end": os.path.join(AUDIO_DIR, "exam_end.wav"),
+    "time_warning": os.path.join(AUDIO_DIR, "time_warning.wav"),
+    "time_expired": os.path.join(AUDIO_DIR, "time_expired.wav"),
+    "question_skipped": os.path.join(AUDIO_DIR, "question_skipped.wav"),
 }
 
 
