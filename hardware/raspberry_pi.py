@@ -183,6 +183,7 @@ class RaspberryPiHardware(HardwareInterface):
         font_path = os.environ.get("OLED_FONT")
         candidates = [font_path] if font_path else []
         candidates += [
+            os.path.join(os.path.dirname(__file__), "..", "DejaVuSans.ttf"),
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             os.path.join(os.path.dirname(__file__), "..", "fonts", "NotoSansDevanagari-Regular.ttf"),
             "/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf",

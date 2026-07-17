@@ -40,7 +40,8 @@ from config.settings import settings
 logger = get_logger("pi.boot")
 
 _WIFI_CONNECT_TIMEOUT = 15
-_BOOT_FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+_BOOT_FONT_PATH = os.path.join(os.path.dirname(__file__), "..", "DejaVuSans.ttf")
+_BOOT_FONT_FALLBACK = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 _BOOT_FONT_SIZE = 10
 _LINE_Y = [2, 18, 34, 50]
 
@@ -48,10 +49,12 @@ _boot_oled = None
 
 
 def _load_boot_font():
-    try:
-        return ImageFont.truetype(_BOOT_FONT_PATH, _BOOT_FONT_SIZE)
-    except Exception:
-        return ImageFont.load_default()
+    for path in (_BOOT_FONT_PATH, _BOOT_FONT_FALLBACK):
+        try:
+            return ImageFont.truetype(path, _BOOT_FONT_SIZE)
+        except Exception:
+            continue
+    return ImageFont.load_default()
 
 
 def _get_display():
