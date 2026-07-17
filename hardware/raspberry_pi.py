@@ -156,6 +156,9 @@ class RaspberryPiHardware(HardwareInterface):
         self._frames: list = []
         self._recording = False
         self._stream = None
+        self._rec_queue: queue.Queue = queue.Queue()
+        self._rec_writer: threading.Thread = None
+        self._rec_path: str = None
 
     # ──────────────────────────────────────────────────────────────────────────
     # OLED
@@ -307,8 +310,23 @@ class RaspberryPiHardware(HardwareInterface):
     # Recording (USB mic, background stream → WAV)
     # ──────────────────────────────────────────────────────────────────────────
     def start_recording(self) -> None:
-        self._frames = []
+        self._rec_path = os.path.join(self._recordings_dir, f"rec_{int(time.time())}.ogg")
+        self._rec_queue = queue.Queue()
         self._recording = True
+
+        # Writer thread drains queue and writes chunks incrementally
+        def _writer():
+            with sf.SoundFile(self._rec_path, mode="w", samplerate=self._sample_rate,
+                              channels=_CHANNELS, format="OGG", subtype="VORBIS") as f:
+                while True:
+                    chunk = self._rec_queue.get()
+                    if chunk is None:  # sentinel
+                        break
+                    f.write(chunk)
+
+        self._rec_writer = threading.Thread(target=_writer, daemon=True)
+        self._rec_writer.start()
+
         self._cue("record_start", fallback_freq=880.0)
         try:
             self._stream = sd.InputStream(
@@ -321,11 +339,12 @@ class RaspberryPiHardware(HardwareInterface):
             self._stream.start()
         except Exception as e:
             print(f"[REC] Mic init failed: {e}")
+            self._rec_queue.put(None)  # stop writer
             self._stream = None
 
     def _audio_callback(self, indata, frames, time_info, status):
         if self._recording:
-            self._frames.append(indata.copy())
+            self._rec_queue.put(indata.copy())
 
     def stop_recording(self) -> str:
         self._recording = False
@@ -333,21 +352,11 @@ class RaspberryPiHardware(HardwareInterface):
             self._stream.stop()
             self._stream.close()
             self._stream = None
-
-        path = os.path.join(self._recordings_dir, f"rec_{int(time.time())}.ogg")
-        frames_snapshot = self._frames
-        self._frames = []
-
-        def _save():
-            audio = (
-                np.concatenate(frames_snapshot, axis=0)
-                if frames_snapshot
-                else np.zeros((0, _CHANNELS), dtype="int16")
-            )
-            sf.write(path, audio, self._sample_rate)
-
-        threading.Thread(target=_save, daemon=True).start()
-        return path
+        # Signal writer to finish and wait for file to close
+        self._rec_queue.put(None)
+        if self._rec_writer is not None:
+            self._rec_writer.join()
+        return self._rec_path
 
     # ──────────────────────────────────────────────────────────────────────────
     # Buttons
