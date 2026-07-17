@@ -83,29 +83,31 @@ def _play_test_tone(hw) -> None:
     """Play a short beep to test speaker."""
     import struct
     import math
-    
-    # Generate 440Hz tone, 0.5 seconds
-    sample_rate = 16000
-    duration = 0.5
+    import sounddevice as sd
+
     freq = 440
-    
+    duration = 0.5
+
+    # Try common sample rates — ALSA rejects 16000 on some USB cards
+    for sample_rate in (44100, 48000, 16000):
+        try:
+            sd.check_output_settings(samplerate=sample_rate, channels=1, dtype="int16")
+            break
+        except Exception:
+            continue
+
     num_samples = int(sample_rate * duration)
     buf = io.BytesIO()
-    
     with wave.open(buf, "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(sample_rate)
-        frames = []
-        for i in range(num_samples):
-            value = int(16000 * math.sin(2 * math.pi * freq * i / sample_rate))
-            frames.append(struct.pack("<h", value))
+        frames = [struct.pack("<h", int(16000 * math.sin(2 * math.pi * freq * i / sample_rate))) for i in range(num_samples)]
         wf.writeframes(b"".join(frames))
-    
-    # Save temp file
+
     temp_path = os.path.join(settings.storage_dir, ".test_tone.wav")
     with open(temp_path, "wb") as f:
         f.write(buf.getvalue())
-    
+
     hw.play_audio(temp_path)
     os.remove(temp_path)
