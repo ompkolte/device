@@ -1,2 +1,15 @@
 .venv/
-.piclientenv/
+piclientenv/
+
+# Exam runtime files
+sim_recordings/
+/tmp/exam_recordings/
+storage/answers/
+storage/questions/
+logs/
+
+# Device identity (auto-generated)
+config/device.json
+
+# Env
+.env
